@@ -2,8 +2,10 @@
 pragma solidity ^0.8.0;
 
 import "./EIP20Interface.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract DadJoke is EIP20Interface {
+
+contract DadJoke is EIP20Interface, Ownable {
     string public name;
     string public symbol;
     uint8 public decimals;
@@ -12,49 +14,17 @@ contract DadJoke is EIP20Interface {
     mapping(address => mapping(address => uint256)) private allowed;
 
     //ICO Variables
-    uint256 public tokenPrice; //Price per token in weiiiiiis 
-    uint256 public totalTokensSold; // Total tokens sold during the ICO
-    uint256 public icoStartTime; //When it all starts
-    uint256 public icoEndTime; //When it all ends
-    bool public icoActive; //If it's still going down er nah
-     
+    uint256 private _totalSupply; // Use a private variable for total supply
 
+    function totalSupply() public view override returns (uint256) {
+        return _totalSupply;
+    }
     constructor(uint256 initialSupply) {
-        totalSupply = initialSupply;
+        _totalSupply = initialSupply;
         balances[msg.sender] = initialSupply;  // Allocate initial supply to contract deployer
         name = "DadJoke";
         symbol = "DADS";
         decimals = 9;
-
-        tokenPrice = price; //set the token price
-        icoStartTime = block.timestamp; //set the ICO start time
-        icoEndTime = block.timestamp + duration; //set ICO end of days
-        icoActive = true; //Set it off!
-    }
-
-    modifier onlyDuringICO(){
-        require(icoActive, "ICO isn't active");
-        require(block.timestamp >= icoStartTime && block.timestamp <= icoEndTime, "ICO isn't going on. Don't worry 'bout it.");
-        _;
-    }
-
-    function buyTokens() public payable onlyDuringICO{
-        require(msg.value > 0, "Send ETH to buy DADS");
-        uint256 tokensToBuy = (msg.value / tokenPrice) * 10**decimals; //Calculate tokens to buy
-
-        require(tokensToBuy <= balances[msg.sender], "There aren't enough DADS available.");
-        require(tokensToBuy <= balances[address(this)], "Not enough DADS in the ICO contract");
-
-        balances[msg.sender] += tokensToBuy;
-        balances[address(this)] -= tokensToBuy;
-        totalTokensSold += tokensToBuy;
-
-        emit Transfer(address(this), msg.sender, tokensToBuy);
-    }
-
-    function endICO public{
-        require(block.timestamp) > icoEndTime, "ICO is still going on."
-        icoActive = false; //End it all!
     }
 
     function balanceOf(address _owner) public view override returns (uint256 balance) {
@@ -92,4 +62,15 @@ contract DadJoke is EIP20Interface {
     function allowance(address _owner, address _spender) public view override returns (uint256 remaining) {
         return allowed[_owner][_spender];
     }
+
+    function withdrawFunds() public onlyOwner {
+        payable(owner()).transfer(address(this).balance); // Withdraw accumulated funds
+    }
+
+    function mintTokens(uint256 amount) public onlyOwner {
+        _totalSupply += amount; // Increase total supply
+        balances[owner()] += amount; // Allocate new tokens to the owner
+        emit Transfer(address(0), owner(), amount); // Emit transfer event from zero address
+    }
+
 }
